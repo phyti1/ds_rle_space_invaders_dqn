@@ -1,3 +1,4 @@
 runs/
 .vscode/
 Pipfile.lock
+*.pyc
