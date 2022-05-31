@@ -22,7 +22,7 @@ from rle_assignment.utils import LinearSchedule, RingBuffer
 
 
 # common flags
-flags.DEFINE_enum('mode', 'eval', ['train', 'eval'], 'Run mode.')
+flags.DEFINE_enum('mode', 'train', ['train', 'eval'], 'Run mode.')
 flags.DEFINE_string('logdir', './runs', 'Directory where all outputs are written to.')
 flags.DEFINE_string('run_name', datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'), 'Run name.')
 flags.DEFINE_string('eval_name', '2022-04-29_13-54-24', 'Eval Name.')
@@ -34,7 +34,7 @@ flags.DEFINE_float('gamma', .99, 'Discount factor.')
 flags.DEFINE_integer('batch_size', 32, 'Train batch size.')
 flags.DEFINE_float('learning_rate', 2.5e-4, 'Learning rate.')
 flags.DEFINE_float('max_grad_norm', 10, 'Maximum gradient norm. Gradients with larger norms will be clipped.')
-flags.DEFINE_integer('num_envs', 1, 'Number of parallel env processes.')
+flags.DEFINE_integer('num_envs', 2, 'Number of parallel env processes.')
 flags.DEFINE_integer('total_steps', 10_000_000, 'Total number of agent steps.')
 flags.DEFINE_integer('warmup_steps', 80_000, 'Number of warmup steps to fill the replay buffer.')
 flags.DEFINE_integer('buffer_size', 100_000, 'Replay buffer size.')
