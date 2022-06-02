@@ -1,4 +1,11 @@
 
+# !pipenv install
+
+
+import os 
+if(os.path.exists("./persistent")):
+    os.chdir("./persistent")
+
 import datetime
 import os
 import random
@@ -13,19 +20,29 @@ import torch.nn.functional as F
 from absl import flags, app
 from tensorboardX import SummaryWriter
 from torch import nn, optim
-
-if(os.path.exists("./rle_assignment")):
-    os.chdir("./rle_assignment")
+import sys
 
 import rle_assignment.env
 from rle_assignment.utils import LinearSchedule, RingBuffer
 
+def del_all_flags(FLAGS):
+    flags_dict = FLAGS._flags()
+    keys_list = [keys for keys in flags_dict]
+    for key in keys_list:
+        # ignore default flags
+        if(key not in ['logtostderr', 'alsologtostderr', 'log_dir', 'v', 'verbosity', 'logger_levels', 'stderrthreshold', 'showprefixforinfo', 'run_with_pdb', 'pdb_post_mortem', 'pdb', 'run_with_profiling', 'profile_file', 'use_cprofile_for_profiling', 'only_check_args']):
+            FLAGS.__delattr__(key)
+
+# try to clear all flags to be able to rerun
+try:
+    del_all_flags(flags.FLAGS)
+except:
+    pass
 
 # common flags
 flags.DEFINE_enum('mode', 'train', ['train', 'eval'], 'Run mode.')
 flags.DEFINE_string('logdir', './runs', 'Directory where all outputs are written to.')
 flags.DEFINE_string('run_name', datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'), 'Run name.')
-flags.DEFINE_string('eval_name', '2022-04-29_13-54-24', 'Eval Name.')
 flags.DEFINE_bool('cuda', True, 'Whether to run the model on gpu or on cpu.')
 flags.DEFINE_integer('seed', 42, 'Random seed.')
 
@@ -34,7 +51,7 @@ flags.DEFINE_float('gamma', .99, 'Discount factor.')
 flags.DEFINE_integer('batch_size', 32, 'Train batch size.')
 flags.DEFINE_float('learning_rate', 2.5e-4, 'Learning rate.')
 flags.DEFINE_float('max_grad_norm', 10, 'Maximum gradient norm. Gradients with larger norms will be clipped.')
-flags.DEFINE_integer('num_envs', 2, 'Number of parallel env processes.')
+flags.DEFINE_integer('num_envs', 100, 'Number of parallel env processes.')
 flags.DEFINE_integer('total_steps', 10_000_000, 'Total number of agent steps.')
 flags.DEFINE_integer('warmup_steps', 80_000, 'Number of warmup steps to fill the replay buffer.')
 flags.DEFINE_integer('buffer_size', 100_000, 'Replay buffer size.')
@@ -98,7 +115,10 @@ def train(device):
     torch.manual_seed(FLAGS.seed)
 
     logdir = os.path.join(FLAGS.logdir, FLAGS.run_name)
-    os.makedirs(logdir, exist_ok=False)
+    try:
+        os.makedirs(logdir, exist_ok=False)
+    except:
+        pass
 
     FLAGS.append_flags_into_file(os.path.join(logdir, 'flags.txt'))
 
@@ -152,6 +172,7 @@ def train(device):
         # execute actions in environment
         new_obs, rewards, dones, infos = envs.step(actions)
         for done, info in zip(dones, infos):
+            #print(f"info: {info}")
             if done and "episode" in info.keys():
                 logs[f"{env_name}/episode_frames"].append(info["episode_frame_number"])
                 logs[f"{env_name}/episode_reward"].append(info["episode"]["r"])
@@ -243,7 +264,7 @@ def eval(device):
     env = env_fn()
 
     q_network = DQN(env.action_space.n).to(device)
-    q_network.load_state_dict(torch.load(os.path.join(FLAGS.logdir, FLAGS.eval_name, FLAGS.eval_checkpoint)))
+    q_network.load_state_dict(torch.load(os.path.join(FLAGS.logdir, FLAGS.run_name, FLAGS.eval_checkpoint)))
     q_network.eval()
 
     episode_rewards = []
@@ -278,12 +299,21 @@ def eval(device):
     env.close()
 
 
+
+print(sys.argv)
+# remove jupyter cmdline args
+sys.argv = list([sys.argv[0]])
+print(sys.argv)
+# custom flags:
+print(np.array(FLAGS))
+
 def main(_):
     device_name = "cuda" if FLAGS.cuda else "cpu"
     if device_name == "cuda" and not torch.cuda.is_available():
         raise RuntimeError("cuda=true, but cuda is not available")
     device = torch.device(device_name)
     print(f"Using device: {device_name}")
+
 
     if FLAGS.mode == 'train':
         train(device)
@@ -293,3 +323,4 @@ def main(_):
 
 if __name__ == "__main__":
     app.run(main)
+
