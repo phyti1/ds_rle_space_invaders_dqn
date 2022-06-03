@@ -43,8 +43,13 @@ except:
 flags.DEFINE_enum('mode', 'both', ['train', 'eval', 'both'], 'Run mode.')
 flags.DEFINE_string('logdir', './runs', 'Directory where all outputs are written to.')
 flags.DEFINE_string('run_name', datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'), 'Run name.')
+def create_run_name():
+    FLAGS.run_name = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    return FLAGS.run_name
+
 flags.DEFINE_bool('cuda', True, 'Whether to run the model on gpu or on cpu.')
 flags.DEFINE_integer('seed', 42, 'Random seed.')
+
 
 # train flags
 flags.DEFINE_integer('num_envs', 1, 'Number of parallel env processes.')
@@ -53,9 +58,9 @@ flags.DEFINE_integer('batch_size', 32, 'Train batch size.')
 flags.DEFINE_float('gamma', .99, 'Discount factor.')
 flags.DEFINE_float('max_grad_norm', 10, 'Maximum gradient norm. Gradients with larger norms will be clipped.')
 
-flags.DEFINE_integer('warmup_steps', 8_000, 'Number of warmup steps to fill the replay buffer.')
-flags.DEFINE_integer('buffer_size', 10_000, 'Replay buffer size.')
-flags.DEFINE_integer('total_steps', 100_000, 'Total number of agent steps.')
+flags.DEFINE_integer('warmup_steps', 80_000, 'Number of warmup steps to fill the replay buffer.')
+flags.DEFINE_integer('buffer_size', 100_000, 'Replay buffer size.')
+flags.DEFINE_integer('total_steps', 1_000_000, 'Total number of agent steps.')
 flags.DEFINE_integer('train_freq', 4, 'Frequency at which train steps are executed.')
 
 flags.DEFINE_integer('checkpoint_freq', 1_000, 'Frequency at which checkpoints are stored.')
@@ -120,6 +125,7 @@ def train():
     random.seed(FLAGS.seed)
     np.random.seed(FLAGS.seed)
 
+    create_run_name()
     logdir = os.path.join(FLAGS.logdir, FLAGS.run_name)
     # try:
     os.makedirs(logdir, exist_ok=False)
@@ -331,16 +337,21 @@ def main(_):
     elif FLAGS.mode == 'eval':
         eval()
     elif FLAGS.mode == 'both':
-        time_old = time.time()
-        train()
-        train_time = time.time() - time_old
+        for n_envs in [1, 5, 15, 25]:
+            FLAGS.num_envs = n_envs
 
-        time_old = time.time()
+            time_old = time.time()
+            train()
+            train_time = time.time() - time_old
 
-        FLAGS.eval_path = os.path.join(FLAGS.run_name, f'checkpoint-last.pt')
-        eval()
-        test_time = time.time() - time_old
-        print(f"Training time: {train_time:.2f}s, \r\nTest time: {test_time:.2f}s")
+            time_old = time.time()
+
+            FLAGS.eval_path = os.path.join(FLAGS.run_name, f'checkpoint-last.pt')
+            eval()
+            test_time = time.time() - time_old
+            print(f'{FLAGS.run_name}')
+            print(f"Training: {train_time/60:.2f} min")
+            print(f"Test: {test_time:.2f} s")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)

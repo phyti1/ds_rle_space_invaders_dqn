@@ -23,7 +23,7 @@ from rle_assignment.utils import LinearSchedule, RingBuffer
 
 # common flags
 flags.DEFINE_enum('mode', 'train', ['train', 'eval'], 'Run mode.')
-flags.DEFINE_string('logdir', './runs', 'Directory where all outputs are written to.')
+flags.DEFINE_string('logdir', './runs_example', 'Directory where all outputs are written to.')
 flags.DEFINE_string('run_name', datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'), 'Run name.')
 flags.DEFINE_string('eval_name', '2022-04-29_13-54-24', 'Eval Name.')
 flags.DEFINE_bool('cuda', True, 'Whether to run the model on gpu or on cpu.')

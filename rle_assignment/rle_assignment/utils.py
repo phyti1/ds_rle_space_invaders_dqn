@@ -32,8 +32,8 @@ class RingBuffer(object):
             features = samples[key]
             assert features.shape[0] == num_samples
             if self.next_idx+num_samples > self.size:
-                buffer[self.next_idx:] = features[:self.next_idx+num_samples-self.size]
-                buffer[:(self.next_idx + num_samples) % self.size] = features[self.next_idx+num_samples-self.size:]
+                buffer[self.next_idx:] = features[:self.size-self.next_idx] # features[:self.next_idx+num_samples-self.size]
+                buffer[:(self.next_idx + num_samples) % self.size] = features[self.size-self.next_idx:] # features[self.next_idx+num_samples-self.size:]
             else:
                 buffer[self.next_idx:self.next_idx+num_samples] = features
         self.next_idx = (self.next_idx + num_samples) % self.size
