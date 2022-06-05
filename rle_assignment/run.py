@@ -52,13 +52,13 @@ flags.DEFINE_integer('seed', 42, 'Random seed.')
 
 
 # train flags
-flags.DEFINE_integer('num_envs', 1, 'Number of parallel env processes.')
+flags.DEFINE_integer('num_envs', 20, 'Number of parallel env processes.')
 flags.DEFINE_float('learning_rate', 2.5e-4, 'Learning rate.')
 flags.DEFINE_integer('batch_size', 32, 'Train batch size.')
 flags.DEFINE_float('gamma', .99, 'Discount factor.')
 flags.DEFINE_float('max_grad_norm', 10, 'Maximum gradient norm. Gradients with larger norms will be clipped.')
 
-flags.DEFINE_integer('warmup_steps', 80_000, 'Number of warmup steps to fill the replay buffer.')
+flags.DEFINE_integer('warmup_steps', 10_000, 'Number of warmup steps to fill the replay buffer.')
 flags.DEFINE_integer('buffer_size', 100_000, 'Replay buffer size.')
 flags.DEFINE_integer('total_steps', 1_000_000, 'Total number of agent steps.')
 flags.DEFINE_integer('train_freq', 4, 'Frequency at which train steps are executed.')
@@ -75,7 +75,7 @@ flags.DEFINE_float('exploration_fraction', 0.1, 'Fraction of total_frames it tak
 flags.DEFINE_integer('eval_num_episodes', 30, 'Number of eval episodes.')
 flags.DEFINE_bool('eval_render', False, 'Render env during eval.')
 flags.DEFINE_integer('eval_seed', 1234, 'Eval seed.')
-flags.DEFINE_string('eval_path', './2022-04-29_13-54-24/checkpoint-3500000.pt', 'relative path in logdir for evaluation')
+flags.DEFINE_string('eval_path', 'warmup/2022-06-04_16-36-59/checkpoint-last.pt', 'relative path in logdir for evaluation')
 flags.DEFINE_float('eval_epsilon', 0.05, 'Epsilon-greedy during eval.')
 
 FLAGS = flags.FLAGS
@@ -284,7 +284,18 @@ def train():
 
     #endregion
 
-def eval():
+def get_result_text(episode_rewards):
+    results_text = (f"mean_episode_reward={np.mean(episode_rewards):.2f}, "
+          f"std_episode_reward={np.std(episode_rewards):.2f}, "
+          f"min_episode_reward={np.min(episode_rewards):.2f}, "
+          f"max_episode_reward={np.max(episode_rewards):.2f}")
+    return results_text
+
+        
+
+def eval(eval_path = '') -> str:
+    if(eval_path != ''):
+        FLAGS.eval_path = eval_path
     env_fn = make_env_fn(FLAGS.eval_seed, FLAGS.eval_render)
     env = env_fn()
 
@@ -324,12 +335,8 @@ def eval():
                       f"frames={info['episode_frame_number']}")
                 episode_rewards.append(info['episode']['r'])
 
-    print(f"Evaluation completed: "
-          f"mean_episode_reward={np.mean(episode_rewards):.2f}, "
-          f"std_episode_reward={np.std(episode_rewards):.2f}, "
-          f"min_episode_reward={np.min(episode_rewards):.2f}, "
-          f"max_episode_reward={np.max(episode_rewards):.2f}")
     env.close()
+    return episode_rewards
 
 def main(_):
     if FLAGS.mode == 'train':
@@ -337,21 +344,26 @@ def main(_):
     elif FLAGS.mode == 'eval':
         eval()
     elif FLAGS.mode == 'both':
-        for n_envs in [1, 5, 15, 25]:
-            FLAGS.num_envs = n_envs
+        # for n_envs in [1, 20, 25]:
+        #     FLAGS.num_envs = n_envs
+        # for n_warmup in [0, 10_000, 50_000, 300_000]:
+        #     FLAGS.warmup_steps = n_warmup
+        for lr in [1e-6, 2e-5, 1e-4, 2e-4, 5e-4, 1e-3]:
+            FLAGS.learning_rate = lr
 
             time_old = time.time()
             train()
             train_time = time.time() - time_old
 
             time_old = time.time()
-
             FLAGS.eval_path = os.path.join(FLAGS.run_name, f'checkpoint-last.pt')
-            eval()
+            episode_rewards = eval()
+            results = get_result_text(episode_rewards)
             test_time = time.time() - time_old
-            print(f'{FLAGS.run_name}')
-            print(f"Training: {train_time/60:.2f} min")
-            print(f"Test: {test_time:.2f} s")
+            open(os.path.join(FLAGS.logdir, 'results.txt'), 'a').write(f'{results},File={FLAGS.run_name},Training={train_time:.2f},Test={test_time:.2f};\r\n')
+            print(f'File={FLAGS.run_name}')
+            print(f"Training={train_time/60:.2f} min")
+            print(f"Test={test_time:.2f} s")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
