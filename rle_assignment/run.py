@@ -53,7 +53,7 @@ flags.DEFINE_integer('seed', 42, 'Random seed.')
 
 # train flags
 flags.DEFINE_integer('num_envs', 20, 'Number of parallel env processes.')
-flags.DEFINE_float('learning_rate', 2.5e-4, 'Learning rate.')
+flags.DEFINE_float('learning_rate', 5e-4, 'Learning rate.')
 flags.DEFINE_integer('batch_size', 32, 'Train batch size.')
 flags.DEFINE_float('gamma', .99, 'Discount factor.')
 flags.DEFINE_float('max_grad_norm', 10, 'Maximum gradient norm. Gradients with larger norms will be clipped.')
@@ -293,9 +293,12 @@ def get_result_text(episode_rewards):
 
         
 
-def eval(eval_path = '') -> str:
-    if(eval_path != ''):
+def eval(eval_path = None, eval_num_episodes = None) -> str:
+    if(eval_path != None):
         FLAGS.eval_path = eval_path
+    if(eval_num_episodes != None):
+        FLAGS.eval_num_episodes = eval_num_episodes
+
     env_fn = make_env_fn(FLAGS.eval_seed, FLAGS.eval_render)
     env = env_fn()
 
@@ -348,8 +351,10 @@ def main(_):
         #     FLAGS.num_envs = n_envs
         # for n_warmup in [0, 10_000, 50_000, 300_000]:
         #     FLAGS.warmup_steps = n_warmup
-        for lr in [1e-6, 2e-5, 1e-4, 2e-4, 5e-4, 1e-3]:
-            FLAGS.learning_rate = lr
+        # for lr in [1e-6, 2e-5, 1e-4, 2e-4, 5e-4, 1e-3]:
+        #     FLAGS.learning_rate = lr
+        for fr in [0.05, 0.1, 0.15]:
+            FLAGS.exploration_epsilon_final = fr
 
             time_old = time.time()
             train()
@@ -360,7 +365,7 @@ def main(_):
             episode_rewards = eval()
             results = get_result_text(episode_rewards)
             test_time = time.time() - time_old
-            open(os.path.join(FLAGS.logdir, 'results.txt'), 'a').write(f'{results},File={FLAGS.run_name},Training={train_time:.2f},Test={test_time:.2f};\r\n')
+            open(os.path.join(FLAGS.logdir, 'results.txt'), 'a').write(f'{results},File={FLAGS.run_name},Training={train_time:.2f},Test={test_time:.2f};\n')
             print(f'File={FLAGS.run_name}')
             print(f"Training={train_time/60:.2f} min")
             print(f"Test={test_time:.2f} s")
