@@ -57,6 +57,7 @@ flags.DEFINE_float('learning_rate', 5e-4, 'Learning rate.')
 flags.DEFINE_integer('batch_size', 32, 'Train batch size.')
 flags.DEFINE_float('gamma', .99, 'Discount factor.')
 flags.DEFINE_float('max_grad_norm', 10, 'Maximum gradient norm. Gradients with larger norms will be clipped.')
+flags.DEFINE_string('network', 'DQN', 'Network type to train, one of [DQN, DUELING_DQN].')
 
 flags.DEFINE_integer('warmup_steps', 10_000, 'Number of warmup steps to fill the replay buffer.')
 flags.DEFINE_integer('buffer_size', 100_000, 'Replay buffer size.')
@@ -99,6 +100,57 @@ def make_env_fn(seed: int, render_human: bool = False, video_folder: Optional[st
         return env
     return env_fn
 
+
+class DuelingDQN(nn.Module):
+    def __init__(self, num_actions: int, in_channels: int = 1) -> None:
+        super().__init__()
+        self.in_channels = in_channels
+        self.convs = nn.Sequential(
+            nn.Conv2d(in_channels, 32, kernel_size=8, stride=4),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, kernel_size=4, stride=2),
+            nn.ReLU(),
+            nn.Conv2d(64, 64, kernel_size=3, stride=1),
+            nn.ReLU(),
+            nn.Flatten()
+        )
+        self.linear = nn.Sequential(
+            nn.Linear(7 * 7 * 64, 512),
+            nn.ReLU(),
+            nn.Linear(512, num_actions),
+        )
+        self.v_s = nn.Sequential(
+            nn.Linear(7 * 7 * 64, 512),
+            nn.ReLU(),
+            nn.Linear(512, 1),
+        )
+        self.a_s = nn.Sequential(
+            nn.Linear(7 * 7 * 64, 512),
+            nn.ReLU(),
+            nn.Linear(512, num_actions),
+        )
+
+    # could be used instead of 7*7*64
+    # def calc_input_layer(self):
+    #     x = torch.zeros(self.in_channels).unsqueeze(0)
+    #     x = self.convs(x)
+    #     return x.flatten().shape[0]
+
+    def forward(self, obs): 
+        if len(obs.shape) == 3:
+            obs = torch.unsqueeze(obs, dim=1)  # add channel dim
+        obs = obs * (1. / 255.)
+
+        if(FLAGS.network == 'DUELING_DQN' or FLAGS.network == 'DUELING_DDQN'):
+            obs = self.convs(obs)
+            v = self.v_s(obs)
+            a = self.a_s(obs)
+            q = v + a - a.mean()
+            return q
+        else:
+            raise ValueError('Unknown network type: {FLAGS.network}')
+    
+
 class DQN(nn.Module):
     def __init__(self, num_actions: int, in_channels: int = 1):
         super().__init__()
@@ -119,7 +171,12 @@ class DQN(nn.Module):
         if len(obs.shape) == 3:
             obs = torch.unsqueeze(obs, dim=1)  # add channel dim
         obs = obs * (1. / 255.)
-        return self.qnet(obs)
+
+        if(FLAGS.network == 'DQN' or FLAGS.network == 'DDQN'):
+            #return self.linear(self.convs(obs))
+            return self.qnet(obs)
+        else:
+            raise ValueError('Unknown network type: {FLAGS.network}')
 
 def train():
     random.seed(FLAGS.seed)
@@ -152,9 +209,18 @@ def train():
         schedule_steps=int(FLAGS.exploration_fraction * FLAGS.total_steps)
     )
 
-    q_network = DQN(envs.single_action_space.n).to(device)
-    target_network = DQN(envs.single_action_space.n).to(device)
-    target_network.load_state_dict(q_network.state_dict())
+    if(FLAGS.network == 'DQN' or FLAGS.network == 'DDQN'):
+        q_network = DQN(envs.single_action_space.n).to(device)
+        target_network = DQN(envs.single_action_space.n).to(device)
+        target_network.load_state_dict(q_network.state_dict())
+
+    elif(FLAGS.network == 'DUELING_DQN' or FLAGS.network == 'DUELING_DDQN'):
+        q_network = DuelingDQN(envs.single_action_space.n).to(device)
+        target_network = DuelingDQN(envs.single_action_space.n).to(device)
+        target_network.load_state_dict(q_network.state_dict())
+
+    else:
+        raise ValueError('Unknown network type: {FLAGS.network}')
 
     optimizer = optim.Adam(q_network.parameters(), lr=FLAGS.learning_rate)
 
@@ -223,8 +289,15 @@ def train():
                 for k, v in replay_buffer.sample(FLAGS.batch_size).items()
             }
 
-            # compute estimate of best q values starting from next states
-            next_q_value, _ = target_network(batch['next_obs']).max(dim=1)
+            if(FLAGS.network == 'DDQN' or FLAGS.network == 'DUELING_DDQN'):
+                _, a_prime = q_network(batch['next_obs']).max(dim=1)
+                next_q_value = target_network(batch['next_obs']).gather(1, a_prime.unsqueeze(1)).squeeze()
+
+            elif(FLAGS.network == 'DQN' or FLAGS.network == 'DUELING_DQN'):
+                # compute estimate of best q values starting from next states
+                next_q_value, _ = target_network(batch['next_obs']).max(dim=1)
+            else:
+                raise ValueError(f'Unknown network type: {FLAGS.network}')
 
             # mask q values where the episode has ended at the current step
             next_q_value_masked = next_q_value * (1 - batch['dones'])
@@ -293,18 +366,26 @@ def get_result_text(episode_rewards):
 
         
 
-def eval(eval_path = None, eval_num_episodes = None) -> str:
+def eval(eval_path = None, eval_num_episodes = None, network = None) -> str:
     if(eval_path != None):
         FLAGS.eval_path = eval_path
     if(eval_num_episodes != None):
         FLAGS.eval_num_episodes = eval_num_episodes
+    if(network != None):
+        FLAGS.network = network
 
     env_fn = make_env_fn(FLAGS.eval_seed, FLAGS.eval_render)
     env = env_fn()
 
     #region: initialize agent and load checkpoint
 
-    q_network = DQN(env.action_space.n).to(device)
+    if(FLAGS.network == 'DQN' or FLAGS.network == 'DDQN'):
+        q_network = DQN(env.action_space.n).to(device)
+    elif(FLAGS.network == 'DUELING_DQN' or FLAGS.network == 'DUELING_DDQN'):
+        q_network = DuelingDQN(env.action_space.n).to(device)
+    else:
+        raise ValueError(f'Unknown network type: {FLAGS.network}')
+
     q_network.load_state_dict(torch.load(os.path.join(FLAGS.logdir, FLAGS.eval_path)))
     q_network.eval()
 
@@ -353,8 +434,11 @@ def main(_):
         #     FLAGS.warmup_steps = n_warmup
         # for lr in [1e-6, 2e-5, 1e-4, 2e-4, 5e-4, 1e-3]:
         #     FLAGS.learning_rate = lr
-        for fr in [0.05, 0.1, 0.15]:
-            FLAGS.exploration_epsilon_final = fr
+        # for fr in [0.15]: # [0.05, 0.1, 0.15]
+        #     FLAGS.exploration_epsilon_final = fr
+
+        for network in ['DUELING_DDQN', 'DUELING_DQN']: # 'DDQN', 'DQN'
+            FLAGS.network = network
 
             time_old = time.time()
             train()
