@@ -1,0 +1,19 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+jupytext = "*"
+absl-py = "*"
+tensorboardx = "*"
+ale-py = "*"
+gym = {extras = ["other"], version = "*"}
+protobuf = "==3.20.1"
+torch = "*"
+
+[dev-packages]
+ipykernel = "*"
+
+[requires]
+python_version = "3.7"

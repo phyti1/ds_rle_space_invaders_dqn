@@ -1,0 +1,12 @@
+mean_episode_reward=311.00, std_episode_reward=133.54, min_episode_reward=90.00, max_episode_reward=635.00,File=2022-06-05_07-58-59,Training=6872.3533663749695,Test=91.23240184783936;
+mean_episode_reward=209.33, std_episode_reward=91.39, min_episode_reward=110.00, max_episode_reward=420.00,File=2022-06-05_09-55-03,Training=7293.393347978592,Test=68.71681118011475;
+mean_episode_reward=215.33, std_episode_reward=99.26, min_episode_reward=50.00, max_episode_reward=475.00,File=2022-06-05_11-57-45,Training=6586.890766143799,Test=76.22700881958008;
+mean_episode_reward=260.67, std_episode_reward=68.98, min_episode_reward=110.00, max_episode_reward=490.00,File=2022-06-05_13-48-48,Training=7107.586345911026,Test=44.00331735610962;
+mean_episode_reward=260.67, std_episode_reward=68.98, min_episode_reward=110.00, max_episode_reward=490.00,File=2022-06-05_15-47-59,Training=6423.701022863388,Test=46.31037473678589;
+mean_episode_reward=149.50, std_episode_reward=67.41, min_episode_reward=75.00, max_episode_reward=295.00,File=2022-06-05_18-30-08,Training=5214.234738588333,Test=34.373857259750366;
+
+mean_episode_reward=193.33, std_episode_reward=44.17, min_episode_reward=155.00, max_episode_reward=385.00,File=2022-06-07_09-54-54,Training=6951.81,Test=92.60;
+mean_episode_reward=287.17, std_episode_reward=182.58, min_episode_reward=65.00, max_episode_reward=720.00,File=2022-06-07_11-52-19,Training=7169.17,Test=105.30;
+mean_episode_reward=257.50, std_episode_reward=51.13, min_episode_reward=180.00, max_episode_reward=420.00,File=2022-06-07_22-59-00,Training=7399.35,Test=80.70;
+mean_episode_reward=260.67, std_episode_reward=68.98, min_episode_reward=110.00, max_episode_reward=490.00,File=2022-06-08_23-52-19,Training=5908.98,Test=46.08;
+mean_episode_reward=227.67, std_episode_reward=140.96, min_episode_reward=45.00, max_episode_reward=775.00,File=2022-06-09_01-31-34,Training=5889.31,Test=44.54;
